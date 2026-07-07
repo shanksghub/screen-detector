@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Screen vs Real Detector</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 550px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            font-size: 1.6rem;
+            margin-bottom: 4px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #888;
+            font-size: 0.85rem;
+            margin-bottom: 20px;
+        }
+        .camera-container {
+            position: relative;
+            background: #f0f0f0;
+            border-radius: 12px;
+            overflow: hidden;
+            aspect-ratio: 4/3;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 15px;
+            border: 2px solid #e0e0e0;
+        }
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
+        }
+        #captured-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
+        }
+        .placeholder {
+            color: #aaa;
+            font-size: 1rem;
+            text-align: center;
+            padding: 20px;
+        }
+        .placeholder span {
+            display: block;
+            font-size: 3rem;
+            margin-bottom: 8px;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        button {
+            flex: 1;
+            padding: 12px 18px;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        #start-camera {
+            background: #667eea;
+            color: white;
+        }
+        #capture {
+            background: #4CAF50;
+            color: white;
+        }
+        #reset {
+            background: #f44336;
+            color: white;
+            display: none;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 15px;
+            color: #666;
+            font-size: 0.95rem;
+        }
+        .loading.active {
+            display: block;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* ─── RESULT BOX ─── */
+        .result-box {
+            margin-top: 15px;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            display: none;
+            animation: fadeIn 0.4s ease;
+        }
+        .result-box.real {
+            background: #e8f5e9;
+            border: 2px solid #4CAF50;
+        }
+        .result-box.screen {
+            background: #fff3e0;
+            border: 2px solid #ff9800;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .result-box .label {
+            font-size: 2.4rem;
+            font-weight: 700;
+        }
+        .result-box.real .label { color: #2e7d32; }
+        .result-box.screen .label { color: #e65100; }
+        .result-box .score {
+            font-size: 1rem;
+            color: #555;
+            margin-top: 4px;
+        }
+        .result-box .confidence {
+            font-size: 0.9rem;
+            color: #777;
+            margin-top: 2px;
+        }
+        .result-box .threshold-note {
+            font-size: 0.75rem;
+            color: #999;
+            margin-top: 8px;
+            border-top: 1px solid #e0e0e0;
+            padding-top: 8px;
+        }
+
+        .footnote {
+            text-align: center;
+            font-size: 0.7rem;
+            color: #bbb;
+            margin-top: 15px;
+        }
+
+        @media (max-width: 480px) {
+            .container { padding: 18px; }
+            .result-box .label { font-size: 2rem; }
+            button { font-size: 0.85rem; padding: 10px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📸 Screen Detector</h1>
+        <p class="subtitle">Take a photo → we tell you if it's REAL or a SCREEN</p>
+
+        <!-- ─── CAMERA ─── -->
+        <div class="camera-container">
+            <video id="video" autoplay playsinline></video>
+            <img id="captured-image" alt="Captured photo">
+            <div class="placeholder" id="placeholder">
+                <span>📷</span>
+                Tap "Start Camera" to begin
+            </div>
+        </div>
+
+        <!-- ─── BUTTONS ─── -->
+        <div class="button-group">
+            <button id="start-camera">📷 Start Camera</button>
+            <button id="capture" disabled>📸 Capture</button>
+            <button id="reset" style="display:none;">🔄 Reset</button>
+        </div>
+
+        <!-- ─── LOADING ─── -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Analyzing photo...</p>
+        </div>
+
+        <!-- ─── RESULT BOX ─── -->
+        <div class="result-box" id="result-box">
+            <div class="label" id="result-label">REAL</div>
+            <div class="score" id="result-score">Score: 0.000 (0=REAL, 1=SCREEN)</div>
+            <div class="confidence" id="result-confidence">Confidence: 0%</div>
+            <div class="threshold-note" id="threshold-note">
+                Threshold = 0.329: if score ≥ 0.329 → SCREEN, if score &lt; 0.329 → REAL
+            </div>
+        </div>
+
+        <div class="footnote">
+            Model accuracy: 97.5% • Latency: ~100ms
+        </div>
+    </div>
+
+    <script>
+        // ─── DOM REFS ───
+        const video = document.getElementById('video');
+        const canvas = document.createElement('canvas');
+        const capturedImage = document.getElementById('captured-image');
+        const placeholder = document.getElementById('placeholder');
+        const startBtn = document.getElementById('start-camera');
+        const captureBtn = document.getElementById('capture');
+        const resetBtn = document.getElementById('reset');
+        const resultBox = document.getElementById('result-box');
+        const loading = document.getElementById('loading');
+        const resultLabel = document.getElementById('result-label');
+        const resultScore = document.getElementById('result-score');
+        const resultConfidence = document.getElementById('result-confidence');
+        const thresholdNote = document.getElementById('threshold-note');
+
+        let stream = null;
+        let isCameraReady = false;
+
+        // ─── START CAMERA ───
+        startBtn.addEventListener('click', async () => {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment', width: { ideal: 1280 } }
+                });
+                video.srcObject = stream;
+                video.style.display = 'block';
+                placeholder.style.display = 'none';
+                capturedImage.style.display = 'none';
+                isCameraReady = true;
+                startBtn.disabled = true;
+                captureBtn.disabled = false;
+                resultBox.style.display = 'none';
+                resetBtn.style.display = 'none';
+                startBtn.textContent = '✅ Camera Ready';
+            } catch (err) {
+                alert('⚠️ Could not access camera: ' + err.message);
+            }
+        });
+
+        // ─── CAPTURE ───
+        captureBtn.addEventListener('click', () => {
+            if (!isCameraReady) return;
+
+            canvas.width = video.videoWidth || 1280;
+            canvas.height = video.videoHeight || 720;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            capturedImage.src = canvas.toDataURL('image/jpeg', 0.9);
+            capturedImage.style.display = 'block';
+            video.style.display = 'none';
+            placeholder.style.display = 'none';
+            captureBtn.disabled = true;
+
+            sendPrediction(capturedImage.src);
+        });
+
+        // ─── RESET ───
+        resetBtn.addEventListener('click', () => {
+            resultBox.style.display = 'none';
+            loading.classList.remove('active');
+            capturedImage.style.display = 'none';
+            video.style.display = 'block';
+            captureBtn.disabled = false;
+            resetBtn.style.display = 'none';
+            startBtn.disabled = true;
+        });
+
+        // ─── SEND TO SERVER ───
+        async function sendPrediction(imageData) {
+            loading.classList.add('active');
+            resultBox.style.display = 'none';
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: imageData })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    alert('⚠️ Error: ' + data.error);
+                    return;
+                }
+
+                // Show result
+                const resultClass = data.decision.toLowerCase();
+                resultBox.className = 'result-box ' + resultClass;
+                resultLabel.textContent = data.decision;
+                resultScore.textContent = 'Score: ' + data.score.toFixed(4) + ' (0=REAL, 1=SCREEN)';
+                resultConfidence.textContent = 'Confidence: ' + data.confidence.toFixed(1) + '%';
+                thresholdNote.innerHTML =
+                    'Threshold = 0.329: if score ≥ 0.329 → SCREEN, if score &lt; 0.329 → REAL';
+                resultBox.style.display = 'block';
+                resetBtn.style.display = 'block';
+
+            } catch (err) {
+                alert('⚠️ Server error: ' + err.message);
+            } finally {
+                loading.classList.remove('active');
+            }
+        }
+
+        // ─── CLEANUP ───
+        window.addEventListener('beforeunload', () => {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+        });
+    </script>
+</body>
+</html>
