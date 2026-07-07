@@ -1,6 +1,6 @@
 """
-train_16feat.py - Train with ALL 16 features (optimized extractor)
-Usage: python train_16feat.py --real_dir data/real --screen_dir data/screen --out model_16feat.joblib
+train.py - Train with ALL 16 features (optimized extractor)
+Usage: python train.py --real_dir data/real --screen_dir data/screen --out model.joblib
 """
 
 import argparse
@@ -91,8 +91,10 @@ def main():
     cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
     
     print("\n" + "="*60)
-    
+
     cv_scores = cross_val_score(clf, X_scaled, y, cv=cv, scoring='accuracy')
+    print(f"\n  Cross-validated accuracy: {cv_scores.mean():.4f} (+/- {cv_scores.std():.4f})")
+    print(f"  Per-fold scores: {cv_scores}")
 
     # Train on full dataset
     print("\n" + "="*60)
