@@ -1,0 +1,16 @@
+# Core dependencies (required)
+Flask>=2.0.0
+opencv-python>=4.5.0
+numpy>=1.21.0
+scikit-learn>=1.0.0
+joblib>=1.0.0
+scipy>=1.7.0
+pillow>=8.0.0
+
+# Web server (for Render deployment)
+gunicorn>=20.1.0
+
+# Optional optimizations (try/except fallbacks in code - works even if these fail)
+jpeg4py>=0.1.4
+numba>=0.57.0
+cython>=0.29.0
