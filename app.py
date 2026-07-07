@@ -15,7 +15,7 @@ from io import BytesIO
 from PIL import Image
 
 # Import your feature extractor
-from feature_extraction_fast_16feat import extract_features_fast
+from feature_extraction import extract_features_fast
 
 app = Flask(__name__)
 
